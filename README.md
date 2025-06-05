@@ -30,16 +30,6 @@ An intelligent search addon for Stremio powered by Google's Gemini AI. Get perso
 
 ## Query ideas
 
-### Searching for a particular movie/series
-
-Sometimes, searching for a particular movie/series does not include it in the results. using the below template will guide AI and get you the intended results.
-
-Template: The < name > < movie/series >
-
-e.g. The Breaking Bad series, The Modern Family series
-
-This lets the AI know you are looking for this specific item. The result you get will be this (first result) and others that are similar ones.
-
 Here are some examples showing how versatile this addon is.
 
 ### Natural Language Queries
