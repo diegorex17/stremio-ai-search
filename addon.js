@@ -976,6 +976,195 @@ async function searchTMDB(title, type, year, tmdbKey, language = "en-US") {
   }
 }
 
+async function searchTMDBExactMatch(title, type, tmdbKey, language = "en-US") {
+  const startTime = Date.now();
+  logger.debug("Starting TMDB exact match search", { title, type });
+  const cacheKey = `exact_${title}-${type}-${language}`;
+  if (tmdbCache.has(cacheKey)) {
+    const cached = tmdbCache.get(cacheKey);
+    logger.info("TMDB exact match cache hit", {
+      cacheKey,
+      cachedAt: new Date(cached.timestamp).toISOString(),
+      age: `${Math.round((Date.now() - cached.timestamp) / 1000)}s`,
+      responseTime: `${Date.now() - startTime}ms`,
+      title,
+      type,
+      language,
+    });
+    return cached.data;
+  }
+  logger.info("TMDB exact match cache miss", {
+    cacheKey,
+    title,
+    type,
+    language,
+  });
+  try {
+    const searchType = type === "movie" ? "movie" : "tv";
+    const searchParams = new URLSearchParams({
+      api_key: tmdbKey,
+      query: title,
+      include_adult: false,
+      language: language,
+    });
+    const searchUrl = `${TMDB_API_BASE}/search/${searchType}?${searchParams.toString()}`;
+    logger.info("Making TMDB exact match API call", {
+      url: searchUrl.replace(tmdbKey, "***"),
+      params: { type: searchType, query: title, language },
+    });
+    const responseData = await withRetry(
+      async () => {
+        const searchResponse = await fetch(searchUrl);
+        if (!searchResponse.ok) {
+          const errorData = await searchResponse.json().catch(() => ({}));
+          let errorMessage;
+          if (searchResponse.status === 401) {
+            errorMessage = "Invalid TMDB API key";
+          } else if (searchResponse.status === 429) {
+            errorMessage = "TMDB API rate limit exceeded";
+          } else {
+            errorMessage = `TMDB API error: ${searchResponse.status} ${
+              errorData?.status_message || ""
+            }`;
+          }
+          const error = new Error(errorMessage);
+          error.status = searchResponse.status;
+          error.isRateLimit = searchResponse.status === 429;
+          error.isInvalidKey = searchResponse.status === 401;
+          throw error;
+        }
+        return searchResponse.json();
+      },
+      {
+        maxRetries: 3,
+        initialDelay: 1000,
+        maxDelay: 8000,
+        operationName: "TMDB exact match search API call",
+        shouldRetry: (error) =>
+          !error.isInvalidKey &&
+          (!error.status || error.status >= 500 || error.isRateLimit),
+      }
+    );
+    if (responseData?.results?.length > 0) {
+      const normalizedTitle = title.toLowerCase().trim();
+      const exactMatch = responseData.results.find((result) => {
+        const resultTitle = (result.title || result.name || "")
+          .toLowerCase()
+          .trim();
+        return resultTitle === normalizedTitle;
+      });
+      if (exactMatch) {
+        const tmdbData = {
+          poster: exactMatch.poster_path
+            ? `https://image.tmdb.org/t/p/w500${exactMatch.poster_path}`
+            : null,
+          backdrop: exactMatch.backdrop_path
+            ? `https://image.tmdb.org/t/p/original${exactMatch.backdrop_path}`
+            : null,
+          tmdbRating: exactMatch.vote_average,
+          genres: exactMatch.genre_ids,
+          overview: exactMatch.overview || "",
+          tmdb_id: exactMatch.id,
+          title: exactMatch.title || exactMatch.name,
+          release_date: exactMatch.release_date || exactMatch.first_air_date,
+        };
+        const detailsCacheKey = `details_${searchType}_${exactMatch.id}_${language}`;
+        let detailsData;
+        if (tmdbDetailsCache.has(detailsCacheKey)) {
+          const cachedDetails = tmdbDetailsCache.get(detailsCacheKey);
+          logger.info("TMDB exact match details cache hit", {
+            cacheKey: detailsCacheKey,
+            tmdbId: exactMatch.id,
+            cachedAt: new Date(cachedDetails.timestamp).toISOString(),
+            age: `${Math.round(
+              (Date.now() - cachedDetails.timestamp) / 1000
+            )}s`,
+          });
+          detailsData = cachedDetails.data;
+        } else {
+          const detailsUrl = `${TMDB_API_BASE}/${searchType}/${exactMatch.id}?api_key=${tmdbKey}&append_to_response=external_ids&language=${language}`;
+          logger.info("Making TMDB exact match details API call", {
+            url: detailsUrl.replace(tmdbKey, "***"),
+            movieId: exactMatch.id,
+            type: searchType,
+          });
+          detailsData = await withRetry(
+            async () => {
+              const detailsResponse = await fetch(detailsUrl);
+              if (!detailsResponse.ok) {
+                const errorData = await detailsResponse
+                  .json()
+                  .catch(() => ({}));
+                const error = new Error(
+                  `TMDB details API error: ${detailsResponse.status} ${
+                    errorData?.status_message || ""
+                  }`
+                );
+                error.status = detailsResponse.status;
+                throw error;
+              }
+              return detailsResponse.json();
+            },
+            {
+              maxRetries: 3,
+              initialDelay: 1000,
+              maxDelay: 8000,
+              operationName: "TMDB exact match details API call",
+            }
+          );
+          tmdbDetailsCache.set(detailsCacheKey, {
+            timestamp: Date.now(),
+            data: detailsData,
+          });
+        }
+        if (detailsData) {
+          tmdbData.imdb_id =
+            detailsData.imdb_id || detailsData.external_ids?.imdb_id;
+        }
+        tmdbCache.set(cacheKey, {
+          timestamp: Date.now(),
+          data: tmdbData,
+        });
+        logger.info("TMDB exact match found", {
+          title,
+          type,
+          exactMatchTitle: tmdbData.title,
+          tmdbId: tmdbData.tmdb_id,
+          hasImdbId: !!tmdbData.imdb_id,
+          duration: Date.now() - startTime,
+        });
+        return tmdbData;
+      }
+    }
+    logger.debug("No TMDB exact match found", {
+      title,
+      type,
+      duration: Date.now() - startTime,
+      totalResults: responseData?.results?.length || 0,
+    });
+    tmdbCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: null,
+    });
+    return null;
+  } catch (error) {
+    logger.error("TMDB Exact Match Search Error:", {
+      error: error.message,
+      stack: error.stack,
+      errorType: error.isRateLimit
+        ? "rate_limit"
+        : error.isInvalidKey
+        ? "invalid_key"
+        : error.status
+        ? `http_${error.status}`
+        : "unknown",
+      params: { title, type, tmdbKeyLength: tmdbKey?.length },
+      retryAttempts: error.retryCount || 0,
+    });
+    return null;
+  }
+}
+
 const manifest = {
   id: "au.itcon.aisearch",
   version: "1.0.0",
@@ -2507,6 +2696,50 @@ const catalogHandler = async function (args, req) {
       return { metas: [] };
     }
 
+    let exactMatchMeta = null;
+    if (
+      !isRecommendationQuery(searchQuery) &&
+      !isNewContentQuery(searchQuery)
+    ) {
+      logger.info("Checking for TMDB exact match", {
+        searchQuery,
+        type,
+      });
+      const exactMatchData = await searchTMDBExactMatch(
+        searchQuery,
+        type,
+        tmdbKey,
+        language
+      );
+      if (exactMatchData && exactMatchData.imdb_id) {
+        const exactMatchItem = {
+          id: `exact_${exactMatchData.tmdb_id}`,
+          name: exactMatchData.title,
+          year: exactMatchData.release_date
+            ? new Date(exactMatchData.release_date).getFullYear()
+            : 0,
+          type: type,
+        };
+        exactMatchMeta = await toStremioMeta(
+          exactMatchItem,
+          platform,
+          tmdbKey,
+          rpdbKey,
+          rpdbPosterType,
+          language,
+          configData
+        );
+        if (exactMatchMeta) {
+          logger.info("TMDB exact match found and converted to meta", {
+            searchQuery,
+            exactMatchTitle: exactMatchData.title,
+            tmdbId: exactMatchData.tmdb_id,
+            imdbId: exactMatchData.imdb_id,
+          });
+        }
+      }
+    }
+
     // Check if this is a new/latest content query that we can handle directly with TMDB discover
     if (!isRecommendationQuery(searchQuery) && isNewContentQuery(searchQuery)) {
       logger.info("Using TMDB discover for new/latest content query", {
@@ -3142,19 +3375,33 @@ const catalogHandler = async function (args, req) {
           firstMeta: metas[0],
         });
 
+        let finalMetas = metas;
+        if (exactMatchMeta) {
+          finalMetas = [
+            exactMatchMeta,
+            ...metas.filter((meta) => meta.id !== exactMatchMeta.id),
+          ];
+          logger.info("Added exact match as first result (from cache)", {
+            searchQuery,
+            exactMatchTitle: exactMatchMeta.name,
+            totalResults: finalMetas.length,
+            exactMatchId: exactMatchMeta.id,
+          });
+        }
+
         // Increment counter for successful cached results
-        if (metas.length > 0 && isSearchRequest) {
+        if (finalMetas.length > 0 && isSearchRequest) {
           incrementQueryCounter();
           logger.info(
             "Query counter incremented for successful cached search",
             {
               searchQuery,
-              resultCount: metas.length,
+              resultCount: finalMetas.length,
             }
           );
         }
 
-        return { metas };
+        return { metas: finalMetas };
       }
     }
 
@@ -3778,16 +4025,30 @@ const catalogHandler = async function (args, req) {
         platform,
       });
 
-      // Only increment the counter if we're returning non-empty results
-      if (metas.length > 0 && isSearchRequest) {
-        incrementQueryCounter();
-        logger.info("Query counter incremented for successful search", {
+      let finalMetas = metas;
+      if (exactMatchMeta) {
+        finalMetas = [
+          exactMatchMeta,
+          ...metas.filter((meta) => meta.id !== exactMatchMeta.id),
+        ];
+        logger.info("Added exact match as first result", {
           searchQuery,
-          resultCount: metas.length,
+          exactMatchTitle: exactMatchMeta.name,
+          totalResults: finalMetas.length,
+          exactMatchId: exactMatchMeta.id,
         });
       }
 
-      return { metas };
+      // Only increment the counter if we're returning non-empty results
+      if (finalMetas.length > 0 && isSearchRequest) {
+        incrementQueryCounter();
+        logger.info("Query counter incremented for successful search", {
+          searchQuery,
+          resultCount: finalMetas.length,
+        });
+      }
+
+      return { metas: finalMetas };
     } catch (error) {
       logger.error("Gemini API Error:", {
         error: error.message,
@@ -5055,4 +5316,5 @@ module.exports = {
   removeTmdbDiscoverCacheItem,
   listTmdbDiscoverCacheKeys,
   getRpdbTierFromApiKey,
+  searchTMDBExactMatch,
 };
