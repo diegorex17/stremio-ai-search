@@ -282,7 +282,9 @@ if (ENABLE_LOGGING) {
 }
 
 const PORT = 7000;
-const HOST = "https://stremio.itcon.au";
+const HOST = process.env.HOST
+  ? `https://${process.env.HOST}`
+  : "https://stremio.itcon.au";
 const BASE_PATH = "/aisearch";
 
 const DEFAULT_RPDB_KEY = process.env.RPDB_API_KEY;
@@ -383,27 +385,6 @@ async function startServer() {
       })
     );
 
-    app.use((req, res, next) => {
-      const host = req.hostname;
-
-      if (host === "stremio-dev.itcon.au") {
-        const path = req.originalUrl || req.url;
-
-        const redirectUrl = `https://stremio.itcon.au${path}`;
-
-        if (ENABLE_LOGGING) {
-          logger.info("Redirecting from dev to production", {
-            from: `https://${host}${path}`,
-            to: redirectUrl,
-          });
-        }
-
-        return res.redirect(301, redirectUrl);
-      }
-
-      next();
-    });
-
     app.use("/aisearch", express.static(path.join(__dirname, "public")));
     app.use("/", express.static(path.join(__dirname, "public")));
 
@@ -432,22 +413,6 @@ async function startServer() {
     });
 
     app.use((req, res, next) => {
-      const host = req.hostname;
-
-      if (host === "stremio-dev.itcon.au") {
-        const path = req.originalUrl || req.url;
-        const redirectUrl = `https://stremio.itcon.au${path}`;
-
-        if (ENABLE_LOGGING) {
-          logger.info("Redirecting from dev to production", {
-            from: `https://${host}${path}`,
-            to: redirectUrl,
-          });
-        }
-
-        return res.redirect(301, redirectUrl);
-      }
-
       const userAgent = req.headers["user-agent"] || "";
       const platform = req.headers["stremio-platform"] || "";
 
@@ -679,10 +644,17 @@ async function startServer() {
           }
 
           // Replace the placeholder with actual Trakt client ID
-          const modifiedHtml = data.replace(
-            'const TRAKT_CLIENT_ID = "YOUR_ADDON_CLIENT_ID";',
-            `const TRAKT_CLIENT_ID = "${TRAKT_CLIENT_ID}";`
-          );
+          const modifiedHtml = data
+            .replace(
+              'const TRAKT_CLIENT_ID = "YOUR_ADDON_CLIENT_ID";',
+              `const TRAKT_CLIENT_ID = "${TRAKT_CLIENT_ID}";`
+            )
+            .replace(
+              'const HOST = "stremio.itcon.au";',
+              `const HOST = "${process.env.HOST || "stremio.itcon.au"}";`
+            )
+            .replace('src="logo.png"', `src="${BASE_PATH}/logo.png"`)
+            .replace('src="bmc.png"', `src="${BASE_PATH}/bmc.png"`);
 
           // Send the modified HTML
           res.send(modifiedHtml);
@@ -720,8 +692,7 @@ async function startServer() {
                 code,
                 client_id: TRAKT_CLIENT_ID,
                 client_secret: TRAKT_CLIENT_SECRET,
-                redirect_uri:
-                  "https://stremio.itcon.au/aisearch/oauth/callback",
+                redirect_uri: `${HOST}/aisearch/oauth/callback`,
                 grant_type: "authorization_code",
               }),
             }
@@ -746,7 +717,7 @@ async function startServer() {
                       access_token: "${tokenData.access_token}",
                       refresh_token: "${tokenData.refresh_token}",
                       expires_in: ${tokenData.expires_in}
-                    }, "https://stremio.itcon.au");
+                    }, "${HOST}");
                     window.close();
                   }
                 </script>
@@ -786,6 +757,10 @@ async function startServer() {
             .replace(
               'const TRAKT_CLIENT_ID = "YOUR_ADDON_CLIENT_ID";',
               `const TRAKT_CLIENT_ID = "${TRAKT_CLIENT_ID}";`
+            )
+            .replace(
+              'const HOST = "stremio.itcon.au";',
+              `const HOST = "${process.env.HOST || "stremio.itcon.au"}";`
             )
             .replace('src="logo.png"', `src="${BASE_PATH}/logo.png"`)
             .replace('src="bmc.png"', `src="${BASE_PATH}/bmc.png"`);

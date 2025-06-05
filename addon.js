@@ -172,7 +172,9 @@ const rpdbCache = new SimpleLRUCache({
   ttl: RPDB_CACHE_DURATION,
 });
 
-const HOST = "https://stremio.itcon.au";
+const HOST = process.env.HOST
+  ? `https://${process.env.HOST}`
+  : "https://stremio.itcon.au";
 const PORT = 7000;
 const BASE_PATH = "/aisearch";
 
