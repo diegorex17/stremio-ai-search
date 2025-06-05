@@ -34,7 +34,7 @@ An intelligent search addon for Stremio powered by Google's Gemini AI. Get perso
 
 Sometimes, searching for a particular movie/series does not include it in the results. using the below template will guide AI by revealing your intention clearly to the AI.
 
-Template: The <replace this with the name> <movie/series>
+Template: The <name> <movie/series>
 
 e.g. The Breaking Bad series, The Modern Family series
 
