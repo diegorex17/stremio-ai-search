@@ -32,7 +32,7 @@ An intelligent search addon for Stremio powered by Google's Gemini AI. Get perso
 
 ### Searching for a particular movie/series
 
-Sometimes, searching for a particular movie/series does not include it in the results. using the below template will guide AI by revealing your intention clearly to the AI.
+Sometimes, searching for a particular movie/series does not include it in the results. using the below template will guide AI and get you the intended results.
 
 Template: The < name > < movie/series >
 
