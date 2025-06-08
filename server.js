@@ -637,13 +637,12 @@ async function startServer() {
           return res.status(404).send("Configuration page not found");
         }
 
-        // Read the configure.html file
         fs.readFile(configurePath, "utf8", (err, data) => {
           if (err) {
             return res.status(500).send("Error loading configuration page");
           }
 
-          // Replace the placeholder with actual Trakt client ID
+          const hostWithoutProtocol = HOST.replace(/^https?:\/\//, "");
           const modifiedHtml = data
             .replace(
               'const TRAKT_CLIENT_ID = "YOUR_ADDON_CLIENT_ID";',
@@ -651,12 +650,11 @@ async function startServer() {
             )
             .replace(
               'const HOST = "stremio.itcon.au";',
-              `const HOST = "${process.env.HOST || "stremio.itcon.au"}";`
+              `const HOST = "${hostWithoutProtocol}";`
             )
             .replace('src="logo.png"', `src="${BASE_PATH}/logo.png"`)
             .replace('src="bmc.png"', `src="${BASE_PATH}/bmc.png"`);
 
-          // Send the modified HTML
           res.send(modifiedHtml);
         });
       });
@@ -746,13 +744,12 @@ async function startServer() {
           return res.status(404).send("Configuration page not found");
         }
 
-        // Read the configure.html file
         fs.readFile(configurePath, "utf8", (err, data) => {
           if (err) {
             return res.status(500).send("Error loading configuration page");
           }
 
-          // Replace the placeholder with actual Trakt client ID and fix image paths
+          const hostWithoutProtocol = HOST.replace(/^https?:\/\//, "");
           let modifiedHtml = data
             .replace(
               'const TRAKT_CLIENT_ID = "YOUR_ADDON_CLIENT_ID";',
@@ -760,18 +757,16 @@ async function startServer() {
             )
             .replace(
               'const HOST = "stremio.itcon.au";',
-              `const HOST = "${process.env.HOST || "stremio.itcon.au"}";`
+              `const HOST = "${hostWithoutProtocol}";`
             )
             .replace('src="logo.png"', `src="${BASE_PATH}/logo.png"`)
             .replace('src="bmc.png"', `src="${BASE_PATH}/bmc.png"`);
 
-          // Add the encrypted config ID to the page
           modifiedHtml = modifiedHtml.replace(
             'value=""',
             `value="${encryptedConfig}"`
           );
 
-          // Send the modified HTML
           res.send(modifiedHtml);
         });
       });
