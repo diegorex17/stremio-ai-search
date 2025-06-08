@@ -1114,7 +1114,7 @@
             }
 
             // Use the encrypt endpoint to get the encrypted configuration
-            const response = await fetch(`https://${HOST}/aisearch/encrypt`, {
+            const response = await fetch(`/aisearch/encrypt`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -1135,12 +1135,11 @@
               );
             }
 
-            // Generate URLs with the encrypted config
             const configId = data.encryptedConfig;
 
             return {
-              stremio: `stremio://${HOST}/aisearch/${configId}/manifest.json`,
-              https: `https://${HOST}/aisearch/${configId}/manifest.json`,
+              stremio: `stremio://${window.location.host}/aisearch/${configId}/manifest.json`,
+              https: `https://${window.location.host}/aisearch/${configId}/manifest.json`,
             };
           } catch (error) {
             showError("Error: " + error.message);
@@ -1158,7 +1157,7 @@
           .value.trim();
 
         try {
-          const response = await fetch(`https://${HOST}/aisearch/validate`, {
+          const response = await fetch(`/aisearch/validate`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -1441,20 +1440,18 @@
       });
 
       window.addEventListener("message", async function (event) {
-        if (event.origin !== `https://${HOST}`) return;
+        if (event.origin !== window.location.origin) return;
 
         if (event.data.type === "TRAKT_AUTH_SUCCESS") {
           const { access_token, refresh_token, expires_in } = event.data;
           document.getElementById("traktAccessToken").value = access_token;
 
-          // Store refresh token and expiration
           localStorage.setItem("traktRefreshToken", refresh_token);
           localStorage.setItem(
             "traktTokenExpires",
             Date.now() + expires_in * 1000
           );
 
-          // Show success message in the Trakt.tv section's help text
           const traktHelpText = document.querySelector(
             ".form-group:has(#traktAuthBtn) .help-text"
           );
@@ -1464,7 +1461,6 @@
               "<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>";
           }
 
-          // Update button text to show connected state
           const traktAuthBtn = document.getElementById("traktAuthBtn");
           if (traktAuthBtn) {
             traktAuthBtn.textContent = "Connected to Trakt.tv";
@@ -1474,7 +1470,6 @@
       });
 
       async function authenticateTrakt() {
-        // Store current form values in sessionStorage before opening popup
         const formData = {
           geminiKey: document.getElementById("geminiKey").value,
           tmdbKey: document.getElementById("tmdbKey").value,
@@ -1487,17 +1482,15 @@
             .checked,
           geminiModel: document.getElementById("geminiModel").value,
           traktAccessToken: document.getElementById("traktAccessToken").value,
-          // NEW: Save RPDB checkbox state
           enableRpdbPosters:
             document.getElementById("enableRpdbPosters").checked,
         };
         sessionStorage.setItem("formData", JSON.stringify(formData));
 
-        const redirectUri = `https://${HOST}/aisearch/oauth/callback`;
+        const redirectUri = `${window.location.origin}/aisearch/oauth/callback`;
         const state = Math.random().toString(36).substring(7);
         sessionStorage.setItem("traktOAuthState", state);
 
-        // Make popup dimensions responsive
         const width = Math.min(600, window.screen.width * 0.9);
         const height = Math.min(800, window.screen.height * 0.9);
         const left = (window.screen.width - width) / 2;
@@ -1705,16 +1698,13 @@
 
           console.log("Submitting form data:", formData);
 
-          const response = await fetch(
-            `https://${HOST}/aisearch/submit-issue`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(formData),
-            }
-          );
+          const response = await fetch(`/aisearch/submit-issue`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(formData),
+          });
 
           const responseData = await response.json();
           console.log("Server response:", responseData);
