@@ -9,7 +9,6 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 7000,
-        HOST: "0.0.0.0",
       },
       max_memory_restart: "999M", // Restart if memory exceeds 300MB
       instances: 1, // Changed to 1 instance to avoid port conflicts
