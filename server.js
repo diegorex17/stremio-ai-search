@@ -61,89 +61,68 @@ async function saveCachesToFiles() {
   try {
     const { serializeAllCaches } = require("./addon");
     const allCaches = serializeAllCaches();
-
-    // Create an array to store promises for all file write operations
     const savePromises = [];
     const results = {};
-
-    // Save each cache to its own file
     for (const [cacheName, cacheData] of Object.entries(allCaches)) {
       const cacheFilePath = path.join(CACHE_FOLDER, `${cacheName}.json.gz`);
-
-      // Add the promise to the array
-      savePromises.push(
-        new Promise((resolve, reject) => {
-          try {
-            // Convert to JSON without pretty printing
-            const jsonData = JSON.stringify(cacheData);
-
-            // Compress the data
-            const compressed = zlib.gzipSync(jsonData);
-
-            // Write the compressed data to file
-            fs.promises
-              .writeFile(cacheFilePath, compressed)
-              .then(() => {
-                // Check if this is a cache object with entries or the stats object
-                if (cacheName === "stats") {
-                  results[cacheName] = {
-                    success: true,
-                    originalSize: jsonData.length,
-                    compressedSize: compressed.length,
-                    compressionRatio:
-                      ((compressed.length / jsonData.length) * 100).toFixed(2) +
-                      "%",
-                    path: cacheFilePath,
-                  };
-                } else {
-                  results[cacheName] = {
-                    success: true,
-                    size: cacheData.entries ? cacheData.entries.length : 0,
-                    originalSize: jsonData.length,
-                    compressedSize: compressed.length,
-                    compressionRatio:
-                      ((compressed.length / jsonData.length) * 100).toFixed(2) +
-                      "%",
-                    path: cacheFilePath,
-                  };
-                }
-                resolve();
-              })
-              .catch((err) => {
-                logger.error(`Error saving ${cacheName} to file`, {
-                  error: err.message,
-                  stack: err.stack,
-                });
-                results[cacheName] = {
-                  success: false,
-                  error: err.message,
-                };
-                resolve(); // Resolve anyway to continue with other caches
-              });
-          } catch (err) {
-            logger.error(`Error compressing ${cacheName}`, {
-              error: err.message,
-              stack: err.stack,
-            });
+      const tempCacheFilePath = `${cacheFilePath}.${process.pid}.tmp`;
+      const promise = (async () => {
+        try {
+          const jsonData = JSON.stringify(cacheData);
+          const compressed = zlib.gzipSync(jsonData);
+          await fs.promises.writeFile(tempCacheFilePath, compressed);
+          await fs.promises.rename(tempCacheFilePath, cacheFilePath);
+          if (cacheName === "stats") {
             results[cacheName] = {
-              success: false,
-              error: err.message,
+              success: true,
+              originalSize: jsonData.length,
+              compressedSize: compressed.length,
+              compressionRatio:
+                ((compressed.length / jsonData.length) * 100).toFixed(2) + "%",
+              path: cacheFilePath,
             };
-            resolve(); // Resolve anyway to continue with other caches
+          } else {
+            results[cacheName] = {
+              success: true,
+              size: cacheData.entries ? cacheData.entries.length : 0,
+              originalSize: jsonData.length,
+              compressedSize: compressed.length,
+              compressionRatio:
+                ((compressed.length / jsonData.length) * 100).toFixed(2) + "%",
+              path: cacheFilePath,
+            };
           }
-        })
-      );
+        } catch (err) {
+          logger.error(`Error saving ${cacheName} to file`, {
+            error: err.message,
+            stack: err.stack,
+          });
+          results[cacheName] = {
+            success: false,
+            error: err.message,
+          };
+          try {
+            if (fs.existsSync(tempCacheFilePath)) {
+              await fs.promises.unlink(tempCacheFilePath);
+            }
+          } catch (cleanupErr) {
+            logger.warn(
+              `Failed to delete temporary cache file: ${tempCacheFilePath}`,
+              {
+                error: cleanupErr.message,
+              }
+            );
+          }
+        }
+      })();
+      savePromises.push(promise);
     }
-
-    // Wait for all files to be written
     await Promise.all(savePromises);
-
     logger.info("Cache data saved to individual compressed files", {
       timestamp: new Date().toISOString(),
       cacheFolder: CACHE_FOLDER,
       results,
     });
-
     return {
       success: true,
       timestamp: new Date().toISOString(),
@@ -155,7 +134,6 @@ async function saveCachesToFiles() {
       error: error.message,
       stack: error.stack,
     });
-
     return {
       success: false,
       error: error.message,
@@ -1017,6 +995,34 @@ async function startServer() {
         async (req, res) => {
           const result = await saveCachesToFiles();
           res.json(result);
+        }
+      );
+
+      // Add endpoint to set query counter
+      addonRouter.post(
+        routePath + "stats/count/set",
+        validateAdminToken,
+        express.json(),
+        (req, res) => {
+          try {
+            const { count } = req.body;
+            if (typeof count !== "number" || count < 0) {
+              return res.status(400).json({
+                error: "Count must be a non-negative number",
+              });
+            }
+            const { setQueryCount } = require("./addon");
+            const newCount = setQueryCount(count);
+            res.json({
+              success: true,
+              newCount,
+              message: `Query counter set to ${newCount}`,
+            });
+          } catch (error) {
+            res.status(400).json({
+              error: error.message,
+            });
+          }
         }
       );
 

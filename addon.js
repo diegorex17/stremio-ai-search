@@ -4698,6 +4698,20 @@ function getQueryCount() {
   return queryCounter;
 }
 
+// Function to set the query counter to a specific value
+function setQueryCount(newCount) {
+  if (typeof newCount !== "number" || newCount < 0) {
+    throw new Error("Query count must be a non-negative number");
+  }
+  const oldCount = queryCounter;
+  queryCounter = newCount;
+  logger.info("Query counter manually set", {
+    oldCount,
+    newCount: queryCounter,
+  });
+  return queryCounter;
+}
+
 /**
  * Checks if a query is asking for new/latest content
  * @param {string} query - The search query
@@ -5310,6 +5324,7 @@ module.exports = {
   filterTraktDataByGenres,
   incrementQueryCounter,
   getQueryCount,
+  setQueryCount,
   isNewContentQuery,
   analyzeQueryForDiscover,
   fetchTmdbDiscover,
