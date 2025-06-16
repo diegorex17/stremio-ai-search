@@ -12,7 +12,7 @@ An intelligent search addon for Stremio powered by Google's Gemini AI. Get perso
 
 - Trakt integration to help Gemini suggest personalized recommendations. Note: Only searches starting with "Recommend" will provide personalized recommendations using your watch history from Trakt.
 - Select any of the Google AI models in the addon configuration
-- You can set the number of recommendations AI should return for a query
+- You can set the number of recommendations AI should return for a query (30 Max)
 - TMDB integration ensures you have a content rich catalog for movies and series
 - RPDB integration gives you access to awesome posters with inbuilt ratings
 
