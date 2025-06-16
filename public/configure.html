@@ -1390,7 +1390,7 @@
               // Call toggleRpdbFields *after* setting the checkbox state and API key
               setTimeout(toggleRpdbFields, 100);
 
-              // RESTORED: Load Trakt configuration if available and update UI
+              // RESTORED: Load Trakt configuration if available and validate token
               if (config.TraktAccessToken) {
                 document.getElementById("traktAccessToken").value =
                   config.TraktAccessToken;
@@ -1399,22 +1399,7 @@
                     config.TraktRefreshToken;
                 }
 
-                // Update UI to show connected state
-                const traktAuthBtn = document.getElementById("traktAuthBtn");
-                const traktHelpText = document.querySelector(
-                  ".form-group:has(#traktAuthBtn) .help-text"
-                );
-
-                if (traktAuthBtn) {
-                  traktAuthBtn.textContent = "Connected to Trakt.tv";
-                  traktAuthBtn.style.backgroundColor = "#2a5a2a";
-                }
-
-                if (traktHelpText) {
-                  traktHelpText.innerHTML =
-                    "Successfully connected to Trakt.tv! Your recommendations will now be personalized based on your watch history." +
-                    "<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>";
-                }
+                setTimeout(validateAndRefreshTraktToken, 100);
               }
 
               // Show advanced options if any are set (including the new checkbox)
@@ -1462,22 +1447,122 @@
           document.getElementById("traktAccessToken").value = access_token;
           document.getElementById("traktRefreshToken").value = refresh_token;
 
-          const traktHelpText = document.querySelector(
-            ".form-group:has(#traktAuthBtn) .help-text"
+          updateTraktStatus(
+            "Connected to Trakt.tv",
+            "#2a5a2a",
+            "Successfully connected to Trakt.tv! Your recommendations will now be personalized based on your watch history.<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>"
           );
-          if (traktHelpText) {
-            traktHelpText.innerHTML =
-              "Successfully connected to Trakt.tv! Your recommendations will now be personalized based on your watch history." +
-              "<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>";
-          }
-
-          const traktAuthBtn = document.getElementById("traktAuthBtn");
-          if (traktAuthBtn) {
-            traktAuthBtn.textContent = "Connected to Trakt.tv";
-            traktAuthBtn.style.backgroundColor = "#2a5a2a";
-          }
         }
       });
+
+      async function validateAndRefreshTraktToken() {
+        const traktAccessToken =
+          document.getElementById("traktAccessToken").value;
+        const traktRefreshToken =
+          document.getElementById("traktRefreshToken").value;
+        const traktAuthBtn = document.getElementById("traktAuthBtn");
+        const traktHelpText = document.querySelector(
+          ".form-group:has(#traktAuthBtn) .help-text"
+        );
+
+        if (!traktAccessToken) {
+          updateTraktStatus(
+            "Login with Trakt.tv",
+            "#007bff",
+            "Connect your Trakt.tv account to get personalized movie recommendations based on your watch history and ratings.<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>"
+          );
+          return;
+        }
+
+        updateTraktStatus(
+          "Validating token...",
+          "#666",
+          "Checking your Trakt.tv connection status..."
+        );
+
+        try {
+          const validateResponse = await fetch(
+            "https://api.trakt.tv/users/me",
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "trakt-api-version": "2",
+                "trakt-api-key": TRAKT_CLIENT_ID,
+                Authorization: `Bearer ${traktAccessToken}`,
+              },
+            }
+          );
+
+          if (validateResponse.ok) {
+            updateTraktStatus(
+              "Connected to Trakt.tv",
+              "#2a5a2a",
+              "Successfully connected to Trakt.tv! Your recommendations will now be personalized based on your watch history.<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>"
+            );
+            return;
+          }
+
+          if (validateResponse.status === 401 && traktRefreshToken) {
+            updateTraktStatus(
+              "Token expired, refreshing...",
+              "#e67e22",
+              "Your token has expired. Attempting to refresh automatically..."
+            );
+
+            const refreshResponse = await fetch("/aisearch/oauth/refresh", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ refresh_token: traktRefreshToken }),
+            });
+
+            if (refreshResponse.ok) {
+              const newTokens = await refreshResponse.json();
+              document.getElementById("traktAccessToken").value =
+                newTokens.access_token;
+              if (newTokens.refresh_token) {
+                document.getElementById("traktRefreshToken").value =
+                  newTokens.refresh_token;
+              }
+              updateTraktStatus(
+                "Connected to Trakt.tv",
+                "#2a5a2a",
+                "Token refreshed successfully! Your recommendations will now be personalized based on your watch history.<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>"
+              );
+              return;
+            }
+          }
+
+          updateTraktStatus(
+            "Authentication Required",
+            "#e74c3c",
+            "Your Trakt.tv session has expired. Please click 'Login with Trakt.tv' to reconnect your account."
+          );
+          document.getElementById("traktAccessToken").value = "";
+          document.getElementById("traktRefreshToken").value = "";
+        } catch (error) {
+          updateTraktStatus(
+            "Connection Error",
+            "#e74c3c",
+            "Unable to validate Trakt.tv connection. Please check your internet connection or try re-authenticating."
+          );
+        }
+      }
+
+      function updateTraktStatus(buttonText, buttonColor, helpText) {
+        const traktAuthBtn = document.getElementById("traktAuthBtn");
+        const traktHelpText = document.querySelector(
+          ".form-group:has(#traktAuthBtn) .help-text"
+        );
+
+        if (traktAuthBtn) {
+          traktAuthBtn.textContent = buttonText;
+          traktAuthBtn.style.backgroundColor = buttonColor;
+        }
+
+        if (traktHelpText) {
+          traktHelpText.innerHTML = helpText;
+        }
+      }
 
       async function authenticateTrakt() {
         const formData = {
@@ -1554,21 +1639,7 @@
               document.getElementById("traktRefreshToken").value =
                 formData.traktRefreshToken;
             }
-            const traktAuthBtn = document.getElementById("traktAuthBtn");
-            const traktHelpText = document.querySelector(
-              ".form-group:has(#traktAuthBtn) .help-text"
-            );
-
-            if (traktAuthBtn) {
-              traktAuthBtn.textContent = "Connected to Trakt.tv";
-              traktAuthBtn.style.backgroundColor = "#2a5a2a";
-            }
-
-            if (traktHelpText) {
-              traktHelpText.innerHTML =
-                "Successfully connected to Trakt.tv! Your recommendations will now be personalized based on your watch history." +
-                "<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>";
-            }
+            setTimeout(validateAndRefreshTraktToken, 100);
           }
 
           if (formData.showAdvancedOptions) {
@@ -1579,6 +1650,9 @@
           // Clear the saved form data
           sessionStorage.removeItem("formData");
         }
+
+        // Always validate Trakt status on page load
+        setTimeout(validateAndRefreshTraktToken, 200);
       });
 
       function openIssueModal() {
