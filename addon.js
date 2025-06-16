@@ -288,6 +288,27 @@ function mergeAndDeduplicate(newItems, existingItems) {
   return Array.from(existingMap.values());
 }
 
+async function refreshTraktToken(refreshToken, clientId, clientSecret) {
+  try {
+    const response = await fetch("https://api.trakt.tv/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    if (!response.ok) throw new Error("Token refresh failed");
+    return await response.json();
+  } catch (error) {
+    logger.error("Token refresh error:", { error: error.message });
+    return null;
+  }
+}
+
 // Modular functions for processing different aspects of Trakt data
 function processGenres(watchedItems, ratedItems) {
   const genres = new Map();
@@ -481,7 +502,7 @@ async function fetchTraktIncrementalData(
   // Fetch all data in parallel
   const responses = await Promise.all(
     endpoints.map((endpoint) =>
-      fetch(endpoint, { headers })
+      makeApiCall(endpoint, headers)
         .then((res) => res.json())
         .catch((err) => {
           logger.error("Trakt API Error:", { endpoint, error: err.message });
@@ -501,7 +522,8 @@ async function fetchTraktIncrementalData(
 async function fetchTraktWatchedAndRated(
   clientId,
   accessToken,
-  type = "movies"
+  type = "movies",
+  config = null
 ) {
   logger.info("fetchTraktWatchedAndRated called", {
     hasClientId: !!clientId,
@@ -518,6 +540,36 @@ async function fetchTraktWatchedAndRated(
     });
     return null;
   }
+
+  const makeApiCall = async (url, headers) => {
+    const response = await fetch(url, { headers });
+
+    if (response.status === 401 && config?.TraktRefreshToken) {
+      logger.info("Trakt token expired, attempting refresh");
+
+      const newTokens = await refreshTraktToken(
+        config.TraktRefreshToken,
+        clientId,
+        process.env.TRAKT_CLIENT_SECRET
+      );
+
+      if (newTokens?.access_token) {
+        logger.info("Token refresh successful");
+        config.TraktAccessToken = newTokens.access_token;
+        if (newTokens.refresh_token) {
+          config.TraktRefreshToken = newTokens.refresh_token;
+        }
+
+        const newHeaders = {
+          ...headers,
+          Authorization: `Bearer ${newTokens.access_token}`,
+        };
+        return await fetch(url, { headers: newHeaders });
+      }
+    }
+
+    return response;
+  };
 
   const rawCacheKey = `trakt_raw_${accessToken}_${type}`;
   const processedCacheKey = `trakt_${accessToken}_${type}`;
@@ -616,7 +668,7 @@ async function fetchTraktWatchedAndRated(
 
       const responses = await Promise.all(
         endpoints.map((endpoint) =>
-          fetch(endpoint, { headers })
+          makeApiCall(endpoint, headers)
             .then((res) => res.json())
             .catch((err) => {
               logger.error("Trakt API Error:", {
@@ -1634,7 +1686,8 @@ async function getAIRecommendations(query, type, geminiKey, config) {
       traktData = await fetchTraktWatchedAndRated(
         traktClientId,
         traktAccessToken,
-        type === "movie" ? "movies" : "shows"
+        type === "movie" ? "movies" : "shows",
+        config
       );
 
       // Filter Trakt data based on discovered genres
@@ -2857,7 +2910,8 @@ const catalogHandler = async function (args, req) {
             traktData = await fetchTraktWatchedAndRated(
               DEFAULT_TRAKT_CLIENT_ID,
               configData.TraktAccessToken,
-              type === "movie" ? "movies" : "shows"
+              type === "movie" ? "movies" : "shows",
+              configData
             );
 
             logger.info("Trakt data fetched", {
@@ -3247,7 +3301,8 @@ const catalogHandler = async function (args, req) {
         traktData = await fetchTraktWatchedAndRated(
           DEFAULT_TRAKT_CLIENT_ID,
           configData.TraktAccessToken,
-          type === "movie" ? "movies" : "shows"
+          type === "movie" ? "movies" : "shows",
+          configData
         );
 
         // Filter Trakt data based on discovered genres if we have any

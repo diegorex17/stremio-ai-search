@@ -663,6 +663,7 @@
               id="traktAccessToken"
               placeholder="Will be automatically filled after authentication"
             />
+            <input type="hidden" id="traktRefreshToken" />
             <div class="help-text">
               Connect your Trakt.tv account to get personalized movie
               recommendations based on your watch history and ratings.
@@ -1111,6 +1112,12 @@
             // Add Trakt configuration if provided
             if (traktAccessToken) {
               config.TraktAccessToken = traktAccessToken;
+              const traktRefreshToken = document
+                .getElementById("traktRefreshToken")
+                .value.trim();
+              if (traktRefreshToken) {
+                config.TraktRefreshToken = traktRefreshToken;
+              }
             }
 
             // Use the encrypt endpoint to get the encrypted configuration
@@ -1155,6 +1162,9 @@
         const traktAccessToken = document
           .getElementById("traktAccessToken")
           .value.trim();
+        const traktRefreshToken = document
+          .getElementById("traktRefreshToken")
+          .value.trim();
 
         try {
           const response = await fetch(`/aisearch/validate`, {
@@ -1166,6 +1176,7 @@
               GeminiApiKey: geminiKey,
               TmdbApiKey: tmdbKey,
               TraktAccessToken: traktAccessToken,
+              TraktRefreshToken: traktRefreshToken,
             }),
           });
 
@@ -1383,6 +1394,10 @@
               if (config.TraktAccessToken) {
                 document.getElementById("traktAccessToken").value =
                   config.TraktAccessToken;
+                if (config.TraktRefreshToken) {
+                  document.getElementById("traktRefreshToken").value =
+                    config.TraktRefreshToken;
+                }
 
                 // Update UI to show connected state
                 const traktAuthBtn = document.getElementById("traktAuthBtn");
@@ -1445,12 +1460,7 @@
         if (event.data.type === "TRAKT_AUTH_SUCCESS") {
           const { access_token, refresh_token, expires_in } = event.data;
           document.getElementById("traktAccessToken").value = access_token;
-
-          localStorage.setItem("traktRefreshToken", refresh_token);
-          localStorage.setItem(
-            "traktTokenExpires",
-            Date.now() + expires_in * 1000
-          );
+          document.getElementById("traktRefreshToken").value = refresh_token;
 
           const traktHelpText = document.querySelector(
             ".form-group:has(#traktAuthBtn) .help-text"
@@ -1482,6 +1492,7 @@
             .checked,
           geminiModel: document.getElementById("geminiModel").value,
           traktAccessToken: document.getElementById("traktAccessToken").value,
+          traktRefreshToken: document.getElementById("traktRefreshToken").value,
           enableRpdbPosters:
             document.getElementById("enableRpdbPosters").checked,
         };
@@ -1539,6 +1550,10 @@
           if (formData.traktAccessToken) {
             document.getElementById("traktAccessToken").value =
               formData.traktAccessToken;
+            if (formData.traktRefreshToken) {
+              document.getElementById("traktRefreshToken").value =
+                formData.traktRefreshToken;
+            }
             const traktAuthBtn = document.getElementById("traktAuthBtn");
             const traktHelpText = document.querySelector(
               ".form-group:has(#traktAuthBtn) .help-text"

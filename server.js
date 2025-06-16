@@ -1237,8 +1237,13 @@ async function startServer() {
     app.post("/aisearch/validate", express.json(), async (req, res) => {
       const startTime = Date.now();
       try {
-        const { GeminiApiKey, TmdbApiKey, GeminiModel, TraktAccessToken } =
-          req.body;
+        const {
+          GeminiApiKey,
+          TmdbApiKey,
+          GeminiModel,
+          TraktAccessToken,
+          TraktRefreshToken,
+        } = req.body;
         const validationResults = {
           gemini: false,
           tmdb: false,
@@ -1508,8 +1513,13 @@ async function startServer() {
     app.post("/validate", express.json(), async (req, res) => {
       const startTime = Date.now();
       try {
-        const { GeminiApiKey, TmdbApiKey, GeminiModel, TraktAccessToken } =
-          req.body;
+        const {
+          GeminiApiKey,
+          TmdbApiKey,
+          GeminiModel,
+          TraktAccessToken,
+          TraktRefreshToken,
+        } = req.body;
         const validationResults = {
           gemini: false,
           tmdb: false,
