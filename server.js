@@ -1139,6 +1139,44 @@ async function startServer() {
           })();
         `);
       });
+
+      // Update Trakt.tv token refresh endpoint to use pre-configured credentials
+      addonRouter.post("/oauth/refresh", async (req, res) => {
+        try {
+          const { refresh_token } = req.body;
+
+          if (!refresh_token) {
+            return res.status(400).json({ error: "Missing refresh token" });
+          }
+
+          const response = await fetch("https://api.trakt.tv/oauth/token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              refresh_token,
+              client_id: TRAKT_CLIENT_ID,
+              client_secret: TRAKT_CLIENT_SECRET,
+              redirect_uri: `${HOST}/aisearch/oauth/callback`,
+              grant_type: "refresh_token",
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to refresh token");
+          }
+
+          const tokenData = await response.json();
+          res.json(tokenData);
+        } catch (error) {
+          logger.error("Token refresh error:", {
+            error: error.message,
+            stack: error.stack,
+          });
+          res.status(500).json({ error: "Failed to refresh token" });
+        }
+      });
     });
 
     app.use("/", addonRouter);
@@ -1734,44 +1772,6 @@ async function startServer() {
           error: error.message,
           stack: error.stack,
         });
-      }
-    });
-
-    // Update Trakt.tv token refresh endpoint to use pre-configured credentials
-    app.post("/aisearch/oauth/refresh", async (req, res) => {
-      try {
-        const { refresh_token } = req.body;
-
-        if (!refresh_token) {
-          return res.status(400).json({ error: "Missing refresh token" });
-        }
-
-        const response = await fetch("https://api.trakt.tv/oauth/token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            refresh_token,
-            client_id: TRAKT_CLIENT_ID,
-            client_secret: TRAKT_CLIENT_SECRET,
-            redirect_uri: `${HOST}/aisearch/oauth/callback`,
-            grant_type: "refresh_token",
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to refresh token");
-        }
-
-        const tokenData = await response.json();
-        res.json(tokenData);
-      } catch (error) {
-        logger.error("Token refresh error:", {
-          error: error.message,
-          stack: error.stack,
-        });
-        res.status(500).json({ error: "Failed to refresh token" });
       }
     });
 
