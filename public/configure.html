@@ -1481,19 +1481,25 @@
         );
 
         try {
-          const validateResponse = await fetch(
-            "https://api.trakt.tv/users/me",
-            {
-              headers: {
-                "Content-Type": "application/json",
-                "trakt-api-version": "2",
-                "trakt-api-key": TRAKT_CLIENT_ID,
-                Authorization: `Bearer ${traktAccessToken}`,
-              },
-            }
-          );
+          const validateResponse = await fetch(`/aisearch/validate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              TraktAccessToken: traktAccessToken,
+            }),
+          });
 
-          if (validateResponse.ok) {
+          if (!validateResponse.ok) {
+            throw new Error(
+              `Validation endpoint failed with status: ${validateResponse.status}`
+            );
+          }
+
+          const validationResult = await validateResponse.json();
+
+          if (validationResult.trakt) {
             updateTraktStatus(
               "Connected to Trakt.tv",
               "#2a5a2a",
@@ -1502,7 +1508,7 @@
             return;
           }
 
-          if (validateResponse.status === 401 && traktRefreshToken) {
+          if (!validationResult.trakt && traktRefreshToken) {
             updateTraktStatus(
               "Token expired, refreshing...",
               "#e67e22",
