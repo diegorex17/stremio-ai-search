@@ -1755,6 +1755,7 @@ async function startServer() {
             refresh_token,
             client_id: TRAKT_CLIENT_ID,
             client_secret: TRAKT_CLIENT_SECRET,
+            redirect_uri: `${HOST}/aisearch/oauth/callback`,
             grant_type: "refresh_token",
           }),
         });

@@ -297,6 +297,7 @@ async function refreshTraktToken(refreshToken, clientId, clientSecret) {
         refresh_token: refreshToken,
         client_id: clientId,
         client_secret: clientSecret,
+        redirect_uri: `${HOST}/aisearch/oauth/callback`,
         grant_type: "refresh_token",
       }),
     });
