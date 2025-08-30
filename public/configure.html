@@ -1490,7 +1490,7 @@
           updateTraktStatus(
             "Connected to Trakt.tv",
             "#2a5a2a",
-            "Successfully connected to Trakt.tv! Your recommendations will now be personalized based on your watch history.<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>"
+            "Successfully connected to Trakt.tv! <strong>Click 'Update Configuration in Stremio' below to save your settings.</strong>"
           );
         }
       });
@@ -1543,7 +1543,7 @@
             updateTraktStatus(
               "Connected to Trakt.tv",
               "#2a5a2a",
-              "Successfully connected to Trakt.tv! Your recommendations will now be personalized based on your watch history.<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>"
+              "Successfully connected to Trakt.tv! <strong>Click 'Update Configuration in Stremio' below to save your settings.</strong>"
             );
             return;
           }
@@ -1569,10 +1569,13 @@
                 document.getElementById("traktRefreshToken").value =
                   newTokens.refresh_token;
               }
+              document.getElementById("configureBtn").textContent = "Save Refreshed Token";
+              document.getElementById("copyBtn").textContent = "Copy URL with Refreshed Token";
+              
               updateTraktStatus(
-                "Connected to Trakt.tv",
-                "#2a5a2a",
-                "Token refreshed successfully! Your recommendations will now be personalized based on your watch history.<br /><small>Note: You'll need to re-authenticate every 90 days for security reasons.</small>"
+                "Token Refreshed - PLEASE SAVE",
+                "#e67e22",
+                "Your Trakt.tv session was successfully refreshed. <strong>You MUST click 'Save Refreshed Token' below to save these changes.</strong>"
               );
               return;
             }

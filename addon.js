@@ -545,30 +545,11 @@ async function fetchTraktWatchedAndRated(
   const makeApiCall = async (url, headers) => {
     const response = await fetch(url, { headers });
 
-    if (response.status === 401 && config?.TraktRefreshToken) {
-      logger.info("Trakt token expired, attempting refresh");
-
-      const newTokens = await refreshTraktToken(
-        config.TraktRefreshToken,
-        clientId,
-        process.env.TRAKT_CLIENT_SECRET
+    if (response.status === 401) {
+      logger.warn(
+        "Trakt access token is expired. Personalized recommendations will be unavailable until the user updates their configuration."
       );
-
-      if (newTokens?.access_token) {
-        logger.info("Token refresh successful");
-        config.TraktAccessToken = newTokens.access_token;
-        if (newTokens.refresh_token) {
-          config.TraktRefreshToken = newTokens.refresh_token;
-        }
-
-        const newHeaders = {
-          ...headers,
-          Authorization: `Bearer ${newTokens.access_token}`,
-        };
-        return await fetch(url, { headers: newHeaders });
-      }
     }
-
     return response;
   };
 
