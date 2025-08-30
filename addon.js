@@ -1250,6 +1250,16 @@ const manifest = {
       id: "aisearch.recommend",
       name: "AI Series Recommendations",
     },
+    {
+      type: "movie",
+      id: "aisearch.recommend",
+      name: "AI Movie Recommendations",
+    },
+    {
+      type: "series",
+      id: "aisearch.recommend",
+      name: "AI Series Recommendations",
+    },
   ],
   behaviorHints: {
     configurable: true,
