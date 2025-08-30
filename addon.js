@@ -2729,32 +2729,42 @@ const catalogHandler = async function (args, req) {
     searchQuery = extra.search;
   }
 
-  if (!searchQuery) {
-    if (id == "aisearch.recommend") {
-      isHomepageQuery = true;
-      if (type === "movie") {
-        const randomIndex = Math.floor(
-          Math.random() * movieRecommendationPrompts.length
-        );
-        searchQuery = movieRecommendationPrompts[randomIndex];
-      } else if (type === "series") {
-        const randomIndex = Math.floor(
-          Math.random() * seriesRecommendationPrompts.length
-        );
-        searchQuery = seriesRecommendationPrompts[randomIndex];
-      } else {
-        searchQuery = "Recommend something great to watch.";
-      }
-      logger.info("Using dynamic recommendation query", {
-        type,
-        query: searchQuery,
-      });
+const customHomepageQuery = configData.HomepageQuery;
+
+if (!searchQuery) {
+  if (id == "aisearch.recommend") {
+    isHomepageQuery = true;
+    if (customHomepageQuery && customHomepageQuery.trim() !== "") {
+        searchQuery = customHomepageQuery.trim();
+        logger.info("Using user-defined homepage query", {
+            type,
+            query: searchQuery,
+        });
     } else {
-      logger.error("No search query provided");
-      logger.emptyCatalog("No search query provided", { type, extra });
-      return { metas: [] };
+        if (type === "movie") {
+            const randomIndex = Math.floor(
+              Math.random() * movieRecommendationPrompts.length
+            );
+            searchQuery = movieRecommendationPrompts[randomIndex];
+        } else if (type === "series") {
+            const randomIndex = Math.floor(
+              Math.random() * seriesRecommendationPrompts.length
+            );
+            searchQuery = seriesRecommendationPrompts[randomIndex];
+        } else {
+            searchQuery = "Recommend something great to watch.";
+        }
+        logger.info("Using dynamic recommendation query", {
+            type,
+            query: searchQuery,
+        });
     }
+  } else {
+    logger.error("No search query provided");
+    logger.emptyCatalog("No search query provided", { type, extra });
+    return { metas: [] };
   }
+}
 
   try {
     const encryptedConfig = req.stremioConfig;
