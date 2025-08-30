@@ -2729,43 +2729,6 @@ const catalogHandler = async function (args, req) {
     searchQuery = extra.search;
   }
 
-const customHomepageQuery = configData.HomepageQuery;
-
-if (!searchQuery) {
-  if (id == "aisearch.recommend") {
-    isHomepageQuery = true;
-    if (customHomepageQuery && customHomepageQuery.trim() !== "") {
-        searchQuery = customHomepageQuery.trim();
-        logger.info("Using user-defined homepage query", {
-            type,
-            query: searchQuery,
-        });
-    } else {
-        if (type === "movie") {
-            const randomIndex = Math.floor(
-              Math.random() * movieRecommendationPrompts.length
-            );
-            searchQuery = movieRecommendationPrompts[randomIndex];
-        } else if (type === "series") {
-            const randomIndex = Math.floor(
-              Math.random() * seriesRecommendationPrompts.length
-            );
-            searchQuery = seriesRecommendationPrompts[randomIndex];
-        } else {
-            searchQuery = "Recommend something great to watch.";
-        }
-        logger.info("Using dynamic recommendation query", {
-            type,
-            query: searchQuery,
-        });
-    }
-  } else {
-    logger.error("No search query provided");
-    logger.emptyCatalog("No search query provided", { type, extra });
-    return { metas: [] };
-  }
-}
-
   try {
     const encryptedConfig = req.stremioConfig;
 
@@ -2789,6 +2752,45 @@ if (!searchQuery) {
     }
 
     const configData = JSON.parse(decryptedConfigStr);
+
+    if (!searchQuery) {
+      if (id === "aisearch.recommend") {
+        isHomepageQuery = true;
+        const customHomepageQuery = configData.HomepageQuery;
+
+        // Prioritize user's custom homepage query
+        if (customHomepageQuery && customHomepageQuery.trim() !== "") {
+          searchQuery = customHomepageQuery.trim();
+          logger.info("Using user-defined homepage query", {
+            type,
+            query: searchQuery,
+          });
+        } else {
+          // Fallback to existing random prompt logic
+          if (type === "movie") {
+            const randomIndex = Math.floor(
+              Math.random() * movieRecommendationPrompts.length
+            );
+            searchQuery = movieRecommendationPrompts[randomIndex];
+          } else if (type === "series") {
+            const randomIndex = Math.floor(
+              Math.random() * seriesRecommendationPrompts.length
+            );
+            searchQuery = seriesRecommendationPrompts[randomIndex];
+          } else {
+            searchQuery = "Recommend something great to watch.";
+          }
+          logger.info("Using dynamic recommendation query", {
+            type,
+            query: searchQuery,
+          });
+        }
+      } else {
+        logger.error("No search query provided");
+        logger.emptyCatalog("No search query provided", { type, extra });
+        return { metas: [] };
+      }
+    }
 
     // Log the Trakt configuration
     logger.info("Trakt configuration", {
