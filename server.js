@@ -479,17 +479,33 @@ async function startServer() {
       addonRouter.get(routePath + ":config/manifest.json", (req, res) => {
         try {
           const encryptedConfig = req.params.config;
-
           req.stremioConfig = encryptedConfig;
-
-          const manifestWithConfig = {
+          let manifestWithConfig = {
             ...addonInterface.manifest,
-            behaviorHints: {
-              ...addonInterface.manifest.behaviorHints,
-              configurationRequired: !encryptedConfig,
-            },
           };
-
+          let enableHomepage = true;
+          if (encryptedConfig && isValidEncryptedFormat(encryptedConfig)) {
+            const decryptedConfigStr = decryptConfig(encryptedConfig);
+            if (decryptedConfigStr) {
+              try {
+                const configData = JSON.parse(decryptedConfigStr);
+                if (configData.EnableHomepage !== undefined) {
+                  enableHomepage = configData.EnableHomepage;
+                }
+              } catch (e) {
+                logger.warn("Failed to parse decrypted config for manifest generation", { error: e.message });
+              }
+            }
+          }
+          if (!enableHomepage) {
+            manifestWithConfig.catalogs = manifestWithConfig.catalogs.filter(
+              catalog => catalog.id !== 'aisearch.recommend'
+            );
+          }
+          manifestWithConfig.behaviorHints = {
+            ...manifestWithConfig.behaviorHints,
+            configurationRequired: !encryptedConfig,
+          };
           res.setHeader("Access-Control-Allow-Origin", "*");
           res.setHeader("Content-Type", "application/json");
           res.send(JSON.stringify(manifestWithConfig));

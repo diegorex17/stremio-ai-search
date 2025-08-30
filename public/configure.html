@@ -600,6 +600,18 @@
             </div>
           </div>
 
+          <!-- Disable homepage AI recommendations -->
+          <div class="form-group">
+            <div class="checkbox-container">
+              <input type="checkbox" id="enableHomepage" checked />
+              <label for="enableHomepage">Show AI Recommendations on Homepage</label>
+            </div>
+            <div class="help-text">
+              If disabled, the AI recommendation catalogs will not appear on
+              your Stremio homepage.
+            </div>
+          </div>
+
           <!-- Group all RPDB settings together -->
           <div class="form-group">
             <div class="checkbox-container">
@@ -1057,18 +1069,13 @@
           const geminiKey = document.getElementById("geminiKey").value.trim();
           const tmdbKey = document.getElementById("tmdbKey").value.trim();
           const rpdbKey = document.getElementById("rpdbKey").value.trim();
-          const rpdbPosterType =
-            document.getElementById("rpdbPosterType").value;
+          const rpdbPosterType = document.getElementById("rpdbPosterType").value;
           const tmdbLanguage = document.getElementById("tmdbLanguage").value;
           const numResults = document.getElementById("numResults").value.trim();
-          const traktAccessToken = document
-            .getElementById("traktAccessToken")
-            .value.trim();
-          const existingConfigId =
-            document.getElementById("existingConfigId").value;
-          // NEW: Read the state of the RPDB enable checkbox
-          const enableRpdb =
-            document.getElementById("enableRpdbPosters").checked;
+          const traktAccessToken = document.getElementById("traktAccessToken").value.trim();
+          const existingConfigId = document.getElementById("existingConfigId").value;
+          const enableRpdb = document.getElementById("enableRpdbPosters").checked;
+          const enableHomepage = document.getElementById("enableHomepage").checked;
 
           // Basic validation
           if (!geminiKey || geminiKey.length < 10) {
@@ -1100,8 +1107,8 @@
               EnableAiCache: document.getElementById("enableAiCache").checked,
               TmdbLanguage: tmdbLanguage,
               GeminiModel: document.getElementById("geminiModel").value,
-              // NEW: Add EnableRpdb flag to config
               EnableRpdb: enableRpdb,
+              EnableHomepage: enableHomepage,
             };
 
             // Only add RPDB poster type if RPDB is enabled
@@ -1376,8 +1383,6 @@
               if (config.GeminiModel)
                 document.getElementById("geminiModel").value =
                   config.GeminiModel;
-
-              // NEW: Set the RPDB enable checkbox state
               if (config.EnableRpdb !== undefined) {
                 document.getElementById("enableRpdbPosters").checked =
                   config.EnableRpdb;
@@ -1385,6 +1390,12 @@
                 // Default to checked if RpdbApiKey exists but EnableRpdb flag is missing (older configs)
                 document.getElementById("enableRpdbPosters").checked =
                   !!config.RpdbApiKey;
+              }
+              if (config.EnableHomepage !== undefined) {
+                document.getElementById("enableHomepage").checked = config.EnableHomepage;
+              } else {
+                // For older configs that don't have this setting, default it to true
+                document.getElementById("enableHomepage").checked = true;
               }
 
               // Call toggleRpdbFields *after* setting the checkbox state and API key
